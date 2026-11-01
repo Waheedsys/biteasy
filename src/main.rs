@@ -3,7 +3,7 @@ use std::error::Error;
 use std::{env, process};
 use std::env::args;
 use std::fs;
-use columnar::search;
+use biteasy::{search, search_case_insensitive};
 
 fn main() {
    let args:Vec<String> = env::args().collect();
@@ -22,14 +22,21 @@ fn main() {
 
 fn run(config : Config)->Result<(), Box<dyn Error>>{
     let content = fs::read_to_string(config.file_path)?;
-    for line in search(&config.query, &content){
-        println!("{}", line);
+
+    let results = if config.ignore_case {
+        search_case_insensitive(&config.query, &content)
+    } else {
+        search(&config.query, &content)
+    };
+    for line in results{ 
+        println!("{line}");
     }
     Ok(())
 }
 struct Config{
     query:String,
-    file_path:String
+    file_path:String,
+    pub ignore_case: bool,
 }
 impl Config{
     fn new(args: &[String]) -> Result<Config, &'static str> {
@@ -38,16 +45,18 @@ impl Config{
         }
         let query = args[1].clone();
         let file_path = args[2].clone();
+        let ignore_case = env::var("IGNORE_CASE").is_ok();
 
-        Ok(Config{query, file_path})
+
+        Ok(Config{query, file_path, ignore_case})
     }
 }
 
 // keeping parameter as reference of string array so it supports both vector and array
-fn parse_config(args:&[String])->Config{
-    let query = args[1].clone();
-    let file_path = args[2].clone();
-    println!("{:?}", &args);
-    println!("{:?}", args);
-    Config {query, file_path}
-}
+// fn parse_config(args:&[String])->Config{
+//     let query = args[1].clone();
+//     let file_path = args[2].clone();
+//     println!("{:?}", &args);
+//     println!("{:?}", args);
+//     Config {query, file_path}
+// }
