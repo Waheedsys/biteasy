@@ -7,6 +7,7 @@ use columnar::search;
 
 fn main() {
    let args:Vec<String> = env::args().collect();
+   print!("arggggggggggggggg: {}\n", args[0]);
    let config= Config::new(&args).unwrap_or_else(|err| {
         print!("problem parsing argument: {err}");
         process::exit(1);
