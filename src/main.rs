@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Error;
 use std::{fs, vec};
 use std::time::UNIX_EPOCH;
@@ -5,9 +6,19 @@ use std::{fs::OpenOptions, time::SystemTime};
 use std::io::Write;
 
  #[derive(Clone, Debug, PartialEq, Eq)]
+
+ //the actual record
 struct Record{
     key:Vec<u8>,
     value:Vec<u8>,
+    timestamp: u64
+}
+
+//in-memory index entry
+#[derive(PartialEq, Eq, Hash)]
+struct IndexEntry{
+    value_start: usize,
+    value_len: usize,
     timestamp: u64
 }
 
@@ -30,7 +41,7 @@ fn write_record(file:&mut std::fs::File, r:Record) -> std::io::Result<()>{
     Ok(())
 } 
 
-fn read_record(content:&Vec<u8>, offset:usize)-> (Record, usize){
+fn read_record(content:&[u8], offset:usize)-> (Record, usize){
     //offset(start point) ->24(headers)
     // key -> 24 ... 27
     //value -> 27...30
@@ -46,10 +57,22 @@ fn read_record(content:&Vec<u8>, offset:usize)-> (Record, usize){
     return (Record{key, value, timestamp}, value_start+value_len);
 }
 
+fn build_index(content: &[u8]) -> HashMap<Vec<u8>, IndexEntry>{
+    let mut m: HashMap<Vec<u8>, IndexEntry> = HashMap::new();
+    let mut offset = 0;
+    while offset < content.len(){
+        let (rec, next_offset) = read_record(content, offset);
+        let value_start = next_offset - rec.value.len();
+        m.insert(rec.key, IndexEntry { value_start, value_len: rec.value.len(), timestamp: rec.timestamp });
+        offset = next_offset;
+    }
+    return m;
+}
+
 fn main(){
     let rclone:Record;
-    let mut offset = 0;
-    let mut records = Vec::new();
+    
+    // let mut records = Vec::new();
     {
     let mut file = OpenOptions::new()
             .read(true)
@@ -62,13 +85,11 @@ fn main(){
         rclone =  r.clone();
         write_record(&mut file, r);
     }
-     let content = fs::read("foo.txt").expect("error while reading foo.txt");
-     while offset < content.len(){
-        let (rec, next_offset) = read_record(&content, offset);
-        records.push(rec);
-        offset = next_offset;
-     }
-     println!("{:?}", records);
-
+    let content = fs::read("foo.txt").expect("error while reading foo.txt");
+    
+    build_index(&content);
+       
+    
+     
    
 }
