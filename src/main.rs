@@ -46,8 +46,19 @@ fn main(){
     }
 
     let content = fs::read("foo.txt").expect("error while reading foo.txt");
-    // let text = u32::from_le_bytes(content[0..4].try_into());
-    // println!("{}", text);
+    // key -> 24 ... 27
+    //value -> 27...30
+    let key_len   = u64::from_be_bytes(content[0..8].try_into().unwrap())  as usize;
+    let value_len = u64::from_be_bytes(content[8..16].try_into().unwrap()) as usize;
+    let timestamp = u64::from_be_bytes(content[16..24].try_into().unwrap());
    
+    let key_start = 24;
+    let value_start = key_start+key_len;
+    let key = content[key_start..value_start].to_vec();
+    let value = content[value_start..value_start+value_len].to_vec();
+    println!("{}", rclone.key==key);
+     println!("{}", rclone.value==value);
+      println!("{}", rclone.timestamp==timestamp);
+
    
 }
