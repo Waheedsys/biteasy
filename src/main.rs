@@ -28,7 +28,7 @@ impl Record{
         Record{key, value, timestamp}
     }
 }
-// Main write function
+// Main write into file function
 fn write_record(file:&mut std::fs::File, r:Record) -> std::io::Result<()>{
     let key_len = r.key.len();
     let value_len = r.value.len();
@@ -68,14 +68,30 @@ fn build_index(content: &[u8]) -> HashMap<Vec<u8>, IndexEntry>{
     }
     return m;
 }
-
+// GET for retrival of value using index
 fn Get(content: &[u8], entry: &IndexEntry) -> Vec<u8>{
    return content[entry.value_start..entry.value_start+entry.value_len].to_vec();
 }
 
+//PUT update function -> insert new record into active file
+fn Put(file:&mut std::fs::File, newrecord:Record, index:&mut HashMap<Vec<u8>, IndexEntry>) -> Result<(), Error>{
+    let key_len = newrecord.key.len();
+    let value_len = newrecord.value.len();
+
+    file.write_all(&key_len.to_be_bytes());
+    file.write_all(&value_len.to_be_bytes());
+    file.write_all(&newrecord.timestamp.to_be_bytes());
+    file.write_all(&newrecord.key);
+    file.write_all(&newrecord.value);
+    let fileendposition =file.metadata().iter().len(); 
+    let value_start = fileendposition + 24 + key_len;
+    index.insert(newrecord.key, IndexEntry { value_start, value_len: newrecord.value.len(), timestamp: newrecord.timestamp});
+    // let old = index.insert(newrecord.key, ); 
+    return Ok(());
+
+}
+
 fn main(){
-    // let rclone:Record;
-    
     // let mut records = Vec::new();
     {
     let mut file = OpenOptions::new()
@@ -92,14 +108,23 @@ fn main(){
           write_record(&mut file, i).expect("issue in write");
         }
     }
-    let content = fs::read("foo.txt").expect("error while reading foo.txt");
+    let mut content = fs::read("foo.txt").expect("error while reading foo.txt");
     
-    let index = build_index(&content);
-    // println!("{:?}", index);
+    let mut index = build_index(&content);
+    // println!("index Map: {:?}", index);
     let entry = index.get(&vec![1u8, 2, 3]).expect("key not found");
     // println!("{:?}", entry);
     let result  = Get(&content, entry);
-    println!("{:?}", result);
+    
+    let mut activefile = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("foo.txt")
+            .expect("failed to open foo.txt");
+
+    let newrecord = Record::new(vec![30, 20, 10], vec![70, 80, 90, 50]);
+    Put(&mut activefile, newrecord, &mut index);
+    // println!("{:?}", result);
      
    
 }
