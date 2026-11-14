@@ -30,8 +30,26 @@ fn write_record(file:&mut std::fs::File, r:Record) -> std::io::Result<()>{
     Ok(())
 } 
 
+fn read_record(content:&Vec<u8>, offset:usize)-> (Record, usize){
+    //offset(start point) ->24(headers)
+    // key -> 24 ... 27
+    //value -> 27...30
+    //next record will start from offset..29)(30
+    let key_len   = u64::from_be_bytes(content[offset..offset+8].try_into().unwrap())  as usize;
+    let value_len = u64::from_be_bytes(content[offset+8..offset+16].try_into().unwrap()) as usize;
+    let timestamp = u64::from_be_bytes(content[offset+16..offset+24].try_into().unwrap());
+   
+    let key_start = offset+24;
+    let value_start = key_start+key_len;
+    let key = content[key_start..value_start].to_vec();
+    let value = content[value_start..value_start+value_len].to_vec();
+    return (Record{key, value, timestamp}, value_start+value_len);
+}
+
 fn main(){
     let rclone:Record;
+    let mut offset = 0;
+    let mut records = Vec::new();
     {
     let mut file = OpenOptions::new()
             .read(true)
@@ -41,24 +59,16 @@ fn main(){
             .expect("failed to open foo.txt");
 
     let r = Record::new(vec![1, 2, 3], vec![4, 5, 6]);
-       rclone =  r.clone();
+        rclone =  r.clone();
         write_record(&mut file, r);
     }
-
-    let content = fs::read("foo.txt").expect("error while reading foo.txt");
-    // key -> 24 ... 27
-    //value -> 27...30
-    let key_len   = u64::from_be_bytes(content[0..8].try_into().unwrap())  as usize;
-    let value_len = u64::from_be_bytes(content[8..16].try_into().unwrap()) as usize;
-    let timestamp = u64::from_be_bytes(content[16..24].try_into().unwrap());
-   
-    let key_start = 24;
-    let value_start = key_start+key_len;
-    let key = content[key_start..value_start].to_vec();
-    let value = content[value_start..value_start+value_len].to_vec();
-    println!("{}", rclone.key==key);
-     println!("{}", rclone.value==value);
-      println!("{}", rclone.timestamp==timestamp);
+     let content = fs::read("foo.txt").expect("error while reading foo.txt");
+     while offset < content.len(){
+        let (rec, next_offset) = read_record(&content, offset);
+        records.push(rec);
+        offset = next_offset;
+     }
+     println!("{:?}", records);
 
    
 }
