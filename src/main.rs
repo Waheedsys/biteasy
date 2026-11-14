@@ -15,7 +15,7 @@ struct Record{
 }
 
 //in-memory index entry
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 struct IndexEntry{
     value_start: usize,
     value_len: usize,
@@ -28,7 +28,7 @@ impl Record{
         Record{key, value, timestamp}
     }
 }
-
+// Main write function
 fn write_record(file:&mut std::fs::File, r:Record) -> std::io::Result<()>{
     let key_len = r.key.len();
     let value_len = r.value.len();
@@ -40,7 +40,7 @@ fn write_record(file:&mut std::fs::File, r:Record) -> std::io::Result<()>{
     file.write_all(&r.value);
     Ok(())
 } 
-
+// Main read function
 fn read_record(content:&[u8], offset:usize)-> (Record, usize){
     //offset(start point) ->24(headers)
     // key -> 24 ... 27
@@ -56,7 +56,7 @@ fn read_record(content:&[u8], offset:usize)-> (Record, usize){
     let value = content[value_start..value_start+value_len].to_vec();
     return (Record{key, value, timestamp}, value_start+value_len);
 }
-
+//function for building index
 fn build_index(content: &[u8]) -> HashMap<Vec<u8>, IndexEntry>{
     let mut m: HashMap<Vec<u8>, IndexEntry> = HashMap::new();
     let mut offset = 0;
@@ -69,8 +69,12 @@ fn build_index(content: &[u8]) -> HashMap<Vec<u8>, IndexEntry>{
     return m;
 }
 
+fn Get(content: &[u8], entry: &IndexEntry) -> Vec<u8>{
+   return content[entry.value_start..entry.value_start+entry.value_len].to_vec();
+}
+
 fn main(){
-    let rclone:Record;
+    // let rclone:Record;
     
     // let mut records = Vec::new();
     {
@@ -81,15 +85,21 @@ fn main(){
             .open("foo.txt")
             .expect("failed to open foo.txt");
 
-    let r = Record::new(vec![1, 2, 3], vec![4, 5, 6]);
-        rclone =  r.clone();
-        write_record(&mut file, r);
+    let r = vec![Record::new(vec![1, 2, 3], vec![4, 5, 6]),  Record::new(vec![3, 2, 1], vec![7, 8, 9, 5])];
+   
+        // rclone =  r.clone();
+        for i in r{
+          write_record(&mut file, i).expect("issue in write");
+        }
     }
     let content = fs::read("foo.txt").expect("error while reading foo.txt");
     
-    build_index(&content);
-       
-    
+    let index = build_index(&content);
+    // println!("{:?}", index);
+    let entry = index.get(&vec![1u8, 2, 3]).expect("key not found");
+    // println!("{:?}", entry);
+    let result  = Get(&content, entry);
+    println!("{:?}", result);
      
    
 }
