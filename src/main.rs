@@ -108,6 +108,8 @@ fn delete(file:&mut std::fs::File, newrecord:Record, index:&mut HashMap<Vec<u8>,
     file.write_all(&newrecord.key);
     file.write_all(&newrecord.value);
 
+    index.remove(&newrecord.key);
+
 }
 
 fn main(){
@@ -129,6 +131,7 @@ fn main(){
     }
     let content = fs::read("foo.txt").expect("error while reading foo.txt");
     
+    //build index
     let mut index = build_index(&content);
     // println!("index Map: {:?}", index);
     let entry = index.get(&vec![1u8, 2, 3]).expect("key not found");
@@ -141,10 +144,12 @@ fn main(){
             .open("foo.txt")
             .expect("failed to open foo.txt");
 
+    //update
     let newrecord = Record::new(vec![30, 20, 10], vec![70, 80, 90, 50]);
     Put(&mut activefile, newrecord, &mut index);
     // println!("{:?}", result);
+    let deletedrecord = Record::new(vec![30, 20, 10], vec![5 ,3 , 1]);
      
    //delete
-
+    delete(&mut activefile, deletedrecord, &mut index);
 }
