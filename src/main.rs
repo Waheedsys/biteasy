@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Error;
+use std::io; 
 use std::{fs, vec};
 use std::time::UNIX_EPOCH;
 use std::{fs::OpenOptions, time::SystemTime};
@@ -52,7 +53,6 @@ fn read_record(content:&[u8], offset:usize)-> (Record, usize){
     let value_len = u64::from_be_bytes(content[offset+8..offset+16].try_into().unwrap()) as usize;//8->16
     let timestamp = u64::from_be_bytes(content[offset+16..offset+24].try_into().unwrap());//16->24
     let tomestone = content[offset+24];
-    println!("tomestone:{}", tomestone);
     let key_start = offset+HEADER_SIZE;
     let value_start = key_start+key_len;
     let key = content[key_start..value_start].to_vec();
@@ -66,6 +66,7 @@ fn build_index(content: &[u8]) -> HashMap<Vec<u8>, IndexEntry>{
     let mut offset = 0;
     while offset < content.len(){
         let (rec, next_offset) = read_record(content, offset);
+        println!("next_offset: {:?}", next_offset);
         let value_start = next_offset - rec.value.len();
         m.insert(rec.key, IndexEntry { value_start, value_len: rec.value.len(), timestamp: rec.timestamp });
         offset = next_offset;
@@ -78,7 +79,7 @@ fn Get(content: &[u8], entry: &IndexEntry) -> Vec<u8>{
 }
 
 //PUT update function -> insert new record into active file then update the index
-fn Put(file:&mut std::fs::File, newrecord:Record, index:&mut HashMap<Vec<u8>, IndexEntry>) -> Result<(), Error>{
+fn Put(file:&mut std::fs::File, newrecord:Record, index:&mut HashMap<Vec<u8>, IndexEntry>) -> io::Result<()>{
     let key_len = newrecord.key.len();
     let value_len = newrecord.value.len();
     let tomestone= &[0u8];
@@ -89,8 +90,8 @@ fn Put(file:&mut std::fs::File, newrecord:Record, index:&mut HashMap<Vec<u8>, In
     file.write_all(tomestone);
     file.write_all(&newrecord.key);
     file.write_all(&newrecord.value);
-    let fileendposition =file.metadata().iter().len(); 
-    let value_start = fileendposition + HEADER_SIZE + key_len;
+    let record_end = usize::try_from(file.metadata()?.len()).expect("file length is too long"); 
+    let value_start = record_end - value_len;
     index.insert(newrecord.key, IndexEntry { value_start, value_len: newrecord.value.len(), timestamp: newrecord.timestamp});
     // let old = index.insert(newrecord.key, ); 
     return Ok(());
