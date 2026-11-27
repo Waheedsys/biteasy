@@ -66,10 +66,13 @@ fn build_index(content: &[u8]) -> HashMap<Vec<u8>, IndexEntry>{
     let mut offset = 0;
     while offset < content.len(){
         let (rec, next_offset) = read_record(content, offset);
-        println!("next_offset: {:?}", next_offset);
+        if rec.tomestone == 1{
+            m.remove(&rec.key);
+        }else{
         let value_start = next_offset - rec.value.len();
         m.insert(rec.key, IndexEntry { value_start, value_len: rec.value.len(), timestamp: rec.timestamp });
         offset = next_offset;
+      }
     }
     return m;
 }
@@ -154,3 +157,9 @@ fn main(){
    //delete
     delete(&mut activefile, deletedrecord, &mut index);
 }
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    #[test]
+    fn 
